@@ -7,9 +7,11 @@
   and back to the coordinator                               
   3. Use simple function calls or HTTP requests between     
   agents                                                    
-  4. Don't worry about security or authentication - just    
-  make it functional                                        
-  5. Include examples of agents calling each other directly
+  4. Implement basic input validation and sanitization for all
+  inter-agent messages, and use a simple shared secret or   
+  token to authenticate agent-to-agent calls               
+  5. Include examples of agents calling each other with     
+  validated and sanitized inputs only
 
 
   Put it all in a single file called agent_system.py under the backend/agents folder
