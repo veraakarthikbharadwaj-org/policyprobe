@@ -1,12 +1,29 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python3.12:*)",
-      "Bash(python3.13:*)",
-      "Bash(source:*)",
-      "Bash(python:*)",
+      "Bash(python3.12 --version)",
+      "Bash(python3.12 -m pytest)",
+      "Bash(python3.12 -m pytest --tb=short)",
+      "Bash(python3.12 -m pytest -v)",
+      "Bash(python3.12 -m pip install -r requirements.txt)",
+      "Bash(python3.12 -m pip install -r requirements-dev.txt)",
+      "Bash(python3.13 --version)",
+      "Bash(python3.13 -m pytest)",
+      "Bash(python3.13 -m pytest --tb=short)",
+      "Bash(python3.13 -m pytest -v)",
+      "Bash(python3.13 -m pip install -r requirements.txt)",
+      "Bash(python3.13 -m pip install -r requirements-dev.txt)",
+      "Bash(source .venv/bin/activate)",
+      "Bash(python --version)",
+      "Bash(python -m pytest)",
+      "Bash(python -m pytest --tb=short)",
+      "Bash(python -m pytest -v)",
+      "Bash(python -m pip install -r requirements.txt)",
+      "Bash(python -m pip install -r requirements-dev.txt)",
       "Skill(superpowers:systematic-debugging)",
-      "Bash(uvicorn:*)"
+      "Bash(uvicorn main:app --reload)",
+      "Bash(uvicorn main:app --host 0.0.0.0 --port 8000)",
+      "Bash(uvicorn --version)"
     ]
   }
 }
