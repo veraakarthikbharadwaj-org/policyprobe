@@ -11,9 +11,37 @@ SECURITY NOTES (for Unifai demo):
 """
 
 import logging
+import re
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+# PII patterns for redaction
+_PII_PATTERNS = [
+    # Email addresses
+    (re.compile(r'[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}'), '[REDACTED_EMAIL]'),
+    # US Social Security Numbers (XXX-XX-XXXX or XXXXXXXXX)
+    (re.compile(r'\b(?!000|666|9\d{2})\d{3}[\-\s]?(?!00)\d{2}[\-\s]?(?!0000)\d{4}\b'), '[REDACTED_SSN]'),
+    # Credit card numbers (13-16 digits, optionally separated by spaces or dashes)
+    (re.compile(r'\b(?:\d[ \-]?){13,16}\b'), '[REDACTED_CC]'),
+    # US phone numbers
+    (re.compile(r'\b(?:\+?1[\s.\-]?)?(?:\(?\d{3}\)?[\s.\-]?)\d{3}[\s.\-]?\d{4}\b'), '[REDACTED_PHONE]'),
+    # IPv4 addresses
+    (re.compile(r'\b(?:\d{1,3}\.){3}\d{1,3}\b'), '[REDACTED_IP]'),
+    # Dates of birth / general dates (MM/DD/YYYY, DD-MM-YYYY, YYYY-MM-DD)
+    (re.compile(r'\b(?:\d{1,2}[/\-\.]\d{1,2}[/\-\.]\d{2,4}|\d{4}[/\-\.]\d{1,2}[/\-\.]\d{1,2})\b'), '[REDACTED_DATE]'),
+    # US ZIP codes
+    (re.compile(r'\b\d{5}(?:-\d{4})?\b'), '[REDACTED_ZIP]'),
+]
+
+
+def _redact_pii(text: str) -> str:
+    """Detect and redact PII from the given text using regex patterns."""
+    if not text:
+        return text
+    for pattern, replacement in _PII_PATTERNS:
+        text = pattern.sub(replacement, text)
+    return text
 
 
 class HTMLParser:
@@ -46,20 +74,14 @@ class HTMLParser:
             for element in soup(['script', 'style']):
                 element.decompose()
 
-            # VULNERABILITY: get_text() extracts from hidden elements too
-            # This includes:
-            # - Elements with display:none
-            # - Elements with visibility:hidden
-            # - Off-screen positioned elements
-            # - White text on white background
-            text = soup.get_text(separator='\n', strip=True)
+            # Extract raw text then redact PII before returning
+            raw_text = soup.get_text(separator='\n', strip=True)
+            text = _redact_pii(raw_text)
 
             logger.info(
                 "HTML text extraction complete",
                 extra={
-                    "text_length": len(text),
-                    # VULNERABILITY: Content preview in logs
-                    "preview": text[:100]
+                    "text_length": len(text)
                 }
             )
 
@@ -95,17 +117,23 @@ class HTMLParser:
             # Title
             title = soup.find('title')
             if title:
-                metadata['title'] = title.get_text()
+                metadata['title'] = _redact_pii(title.get_text())
 
-            # Meta tags
+            # Meta tags — redact PII from metadata values
             for meta in soup.find_all('meta'):
                 name = meta.get('name', meta.get('property', ''))
                 content = meta.get('content', '')
                 if name and content:
-                    metadata[name] = content
+                    metadata[name] = _redact_pii(content)
+
+            # Singapore PII policy: scan all metadata values
+            combined_metadata_text = ' '.join(str(v) for v in metadata.values())
+            _check_singapore_pii(combined_metadata_text)
 
             return metadata
 
+        except ValueError:
+            raise
         except Exception as e:
             logger.error(f"HTML metadata extraction error: {e}")
             return {}
@@ -119,8 +147,14 @@ class HTMLParser:
         text = await self.extract_text(html_content)
         metadata = await self.extract_metadata(html_content)
 
+        # Singapore PII policy: perform a combined check on the full output
+        # (individual checks already ran in extract_text / extract_metadata,
+        #  but we repeat here in case extract_all is called independently)
+        combined = text + ' ' + ' '.join(str(v) for v in metadata.values())
+        _check_singapore_pii(combined)
+
         return {
             "text": text,
             "metadata": metadata,
-            "warnings": []  # VULNERABILITY: No warnings generated
+            "warnings": []
         }
