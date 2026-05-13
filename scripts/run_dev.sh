@@ -19,7 +19,22 @@ echo "=========================================="
 echo ""
 
 # Find suitable Python interpreter (3.10+)
-source "$PROJECT_ROOT/scripts/python_helper.sh"
+# Inline python helper: find a Python 3.10+ interpreter
+PYTHON_CMD=""
+for candidate in python3.12 python3.11 python3.10 python3 python; do
+    if command -v "$candidate" &>/dev/null; then
+        version=$("$candidate" -c 'import sys; print("%d%d" % sys.version_info[:2])' 2>/dev/null)
+        if [ -n "$version" ] && [ "$version" -ge 310 ] 2>/dev/null; then
+            PYTHON_CMD="$candidate"
+            break
+        fi
+    fi
+done
+if [ -z "$PYTHON_CMD" ]; then
+    echo "ERROR: No suitable Python 3.10+ interpreter found." >&2
+    exit 1
+fi
+echo "Using Python: $PYTHON_CMD ($($PYTHON_CMD --version 2>&1))"
 echo ""
 
 # Check for required environment variables
@@ -34,8 +49,8 @@ fi
 cleanup() {
     echo ""
     echo "Shutting down servers..."
-    kill $BACKEND_PID 2>/dev/null || true
-    kill $FRONTEND_PID 2>/dev/null || true
+    kill -TERM "$BACKEND_PID" 2>/dev/null || true
+    kill -TERM "$FRONTEND_PID" 2>/dev/null || true
     exit 0
 }
 
@@ -49,15 +64,14 @@ cd "$PROJECT_ROOT/backend"
 if [ ! -d ".venv" ]; then
     echo "Creating Python virtual environment..."
     "$PYTHON_CMD" -m venv .venv
-    source .venv/bin/activate
     echo "Installing Python dependencies..."
-    pip install -r requirements.txt
+    .venv/bin/pip install -r requirements.txt
 else
-    source .venv/bin/activate
+    true
 fi
 
-# Start uvicorn in background
-uvicorn main:app --reload --host 127.0.0.1 --port 5500 &
+# Start uvicorn in background using venv python directly
+"$PROJECT_ROOT/backend/.venv/bin/uvicorn" main:app --reload --host 127.0.0.1 --port 5500 &
 BACKEND_PID=$!
 echo "Backend started (PID: $BACKEND_PID)"
 echo "Backend URL: http://localhost:5500"
@@ -76,7 +90,14 @@ if [ ! -d "node_modules" ]; then
     echo "Installing npm dependencies..."
     npm install
 elif [ ! -f "node_modules/.bin/next" ]; then
-    echo "⚠️  node_modules exists but is incomplete. Reinstalling..."
+        echo "⚠️  node_modules exists but is incomplete. Reinstalling..."
+    echo "APPROVAL REQUIRED: About to run 'rm -rf node_modules' to remove the incomplete node_modules directory."
+    read -r -p "Do you approve this destructive operation? [yes/no]: " HITL_APPROVAL
+    if [ "$HITL_APPROVAL" != "yes" ]; then
+        echo "Operation cancelled by user. Aborting."
+        kill $BACKEND_PID 2>/dev/null || true
+        exit 1
+    fi
     rm -rf node_modules
     npm install
 fi
@@ -91,10 +112,10 @@ echo ""
 echo "Waiting for frontend to initialize..."
 sleep 3
 
-if ! kill -0 $FRONTEND_PID 2>/dev/null; then
+if ! kill -0 "$FRONTEND_PID" 2>/dev/null; then
     echo "❌ ERROR: Frontend failed to start!"
     echo "   Check for errors above or try: cd frontend && npm install"
-    kill $BACKEND_PID 2>/dev/null || true
+    kill -TERM "$BACKEND_PID" 2>/dev/null || true
     exit 1
 fi
 

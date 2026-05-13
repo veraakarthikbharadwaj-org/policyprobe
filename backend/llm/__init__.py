@@ -1,9 +1,10 @@
 """
 LLM Client Module
 
-Provides clients for LLM communication via OpenRouter.
+Provides clients for LLM communication via approved organizational LLMs.
 """
 
-from .openrouter import OpenRouterClient
+# OpenRouterClient has been removed as it is not in the organization's approved LLM registry.
+# Import only approved LLM clients here.
 
-__all__ = ["OpenRouterClient"]
+__all__ = []

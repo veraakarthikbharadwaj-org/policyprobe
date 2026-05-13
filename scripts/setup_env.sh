@@ -19,7 +19,7 @@ echo "=========================================="
 echo ""
 
 # Find suitable Python interpreter (3.10+)
-source "$PROJECT_ROOT/scripts/python_helper.sh"
+. "$PROJECT_ROOT/scripts/python_helper.sh"
 echo ""
 
 cd "$PROJECT_ROOT/backend"
@@ -27,7 +27,7 @@ cd "$PROJECT_ROOT/backend"
 # Create virtual environment if it doesn't exist
 if [ -d ".venv" ]; then
     echo "✓ Virtual environment already exists"
-    echo "  To recreate, remove .venv first: rm -rf backend/.venv"
+    echo "  To recreate, delete the backend/.venv directory and re-run this script."
     echo ""
 else
     echo "Creating Python virtual environment..."
@@ -38,7 +38,7 @@ fi
 
 # Activate virtual environment
 echo "Activating virtual environment..."
-source .venv/bin/activate
+. .venv/bin/activate
 echo "✓ Virtual environment activated"
 echo ""
 

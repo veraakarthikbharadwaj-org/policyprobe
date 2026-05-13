@@ -81,22 +81,34 @@ class PIIDetector:
             # Handle PII detection
     """
 
-    # PII patterns (defined but NOT USED in vulnerable version)
+    # PII patterns — includes Singapore-specific categories
     PATTERNS = {
-        "ssn": r"\b\d{3}-\d{2}-\d{4}\b",
-        "ssn_no_dash": r"\b\d{9}\b",
+        # Singapore NRIC/FIN: letter + 7 digits + letter (e.g. S1234567D, G1234567X)
+        "sg_nric": r"\b[STFGM]\d{7}[A-Z]\b",
+        # Singapore CPF account number: 9 digits
+        "sg_cpf": r"\b\d{9}\b",
+        # Singapore SingPass ID (same format as NRIC/FIN — covered above)
+        # Singapore phone numbers: +65 followed by 8 digits, or bare 8-digit local
+        "sg_phone": r"\b(?:\+65[-\s]?)?[689]\d{7}\b",
+        # Singapore postal code: 6 digits
+        "sg_postal": r"\bSingapore\s+\d{6}\b",
+        # Credit card
         "credit_card": r"\b(?:\d{4}[-\s]?){3}\d{4}\b",
-        "phone_us": r"\b(?:\+1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b",
+        # Email
         "email": r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",
+        # Passport number (generic alphanumeric)
+        "passport": r"\b[A-Z]{1,2}\d{6,9}\b",
     }
 
     # Type labels for detected PII
     TYPE_LABELS = {
-        "ssn": "Social Security Number",
-        "ssn_no_dash": "Social Security Number",
+        "sg_nric": "Singapore NRIC/FIN",
+        "sg_cpf": "Singapore CPF Account Number",
+        "sg_phone": "Singapore Phone Number",
+        "sg_postal": "Singapore Postal Address",
         "credit_card": "Credit Card Number",
-        "phone_us": "Phone Number",
         "email": "Email Address",
+        "passport": "Passport Number",
     }
 
     def __init__(self, config_path: Optional[str] = None):
@@ -134,8 +146,6 @@ class PIIDetector:
             extra={
                 "content_length": len(content_str),
                 "content_type": type(content).__name__,
-                # VULNERABILITY: Content preview in logs
-                "preview": content_str[:100]
             }
         )
 
@@ -167,9 +177,36 @@ class PIIDetector:
 
         Example path: "user.profile.contact.details[0].value"
         """
-        # VULNERABILITY: No recursive scanning
-        # Just call the no-op scan method
-        return await self.scan(data, current_path)
+        # Recursively scan nested structures
+        if depth > max_depth:
+            return PIIDetectionResult(has_violations=False, matches=[], scanned_content_length=0, scan_depth=depth)
+
+        all_matches: list[PIIMatch] = []
+        total_length = 0
+
+        if isinstance(data, dict):
+            for key, value in data.items():
+                child_path = f"{current_path}.{key}"
+                child_result = await self.scan_nested(value, child_path, depth + 1, max_depth)
+                all_matches.extend(child_result.matches)
+                total_length += child_result.scanned_content_length
+        elif isinstance(data, (list, tuple)):
+            for idx, item in enumerate(data):
+                child_path = f"{current_path}[{idx}]"
+                child_result = await self.scan_nested(item, child_path, depth + 1, max_depth)
+                all_matches.extend(child_result.matches)
+                total_length += child_result.scanned_content_length
+        else:
+            content_str = str(data) if data else ""
+            total_length = len(content_str)
+            all_matches = self._scan_string(content_str, current_path)
+
+        return PIIDetectionResult(
+            has_violations=len(all_matches) > 0,
+            matches=all_matches,
+            scanned_content_length=total_length,
+            scan_depth=depth
+        )
 
     def _scan_string(self, text: str, path: str) -> list[PIIMatch]:
         """

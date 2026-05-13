@@ -76,7 +76,15 @@ export function ErrorDisplay({ error }: ErrorDisplayProps) {
                   View Details
                 </summary>
                 <pre className="mt-2 bg-black/30 rounded p-2 overflow-x-auto text-gray-400">
-                  {JSON.stringify(error.details, null, 2)}
+                  {JSON.stringify(
+                    Object.fromEntries(
+                      Object.entries(error.details).filter(([key]) =>
+                        ['code', 'field', 'reason', 'type'].includes(key)
+                      )
+                    ),
+                    null,
+                    2
+                  )}
                 </pre>
               </details>
             </div>
