@@ -27,7 +27,9 @@ PolicyProbe is a deliberately vulnerable chat agent application designed to demo
 
 - Node.js 18+
 - Python 3.10+
-- OpenRouter API key (get one at https://openrouter.ai/keys)
+- OpenAI API key (approved provider; set `OPENAI_API_KEY` in `.env`)
+- **Model**: `gpt-4o-2024-08-06` (pinned version from approved model registry)
+- **Integrity**: Verify model identity via OpenAI model metadata endpoint before use (`GET https://api.openai.com/v1/models/gpt-4o-2024-08-06`)
 
 ### Setup
 
@@ -38,40 +40,41 @@ cd policyprobe
 
 # Copy environment template
 cp .env.example .env
-# Edit .env and add your OPENROUTER_API_KEY
+# Edit .env and add your OPENAI_API_KEY
+# Set MODEL_ID=gpt-4o-2024-08-06 (pinned approved version — do not change without registry approval)
 ```
 
 2. **Create virtual environment and install dependencies**
 
-```bash
-./scripts/setup_env.sh    # Creates .venv and installs Python deps
-```
+Run the setup script to create the virtual environment and install Python dependencies:
+
+    scripts/setup_env.sh
 
 3. **Start the application**
 
-```bash
-./scripts/run_dev.sh    # Start both backend and frontend servers
-```
+Run the dev script to start both backend and frontend servers:
+
+    scripts/run_dev.sh
 
 4. **Stop the application**
 
-```bash
-./scripts/stop_dev.sh   # Stop both servers
-```
+Run the stop script to stop both servers:
+
+    scripts/stop_dev.sh
 
 **Or run manually:**
 
-```bash
-# Terminal 1: Backend
-cd backend
-source .venv/bin/activate
-uvicorn main:app --reload --port 5500
+Terminal 1 — Backend:
 
-# Terminal 2: Frontend
-cd frontend
-npm install
-npm run dev -- -p 5001
-```
+    cd backend
+    # Activate your virtual environment, then run:
+    uvicorn main:app --reload --port 5500
+
+Terminal 2 — Frontend:
+
+    cd frontend
+    npm install
+    npm run dev -- -p 5001
 
 5. **Open the app**
 
@@ -136,7 +139,7 @@ policyprobe/
 **Before:**
 1. Ask: "Can you show me the quarterly financial report?"
 2. Tech support agent escalates to finance agent
-3. Access granted without proper authentication
+3. Access denied — inter-agent call proceeds without a valid agent token (authentication required but not enforced)
 
 **After Unifai Remediation:**
 1. Same request
@@ -196,8 +199,8 @@ python scripts/create_test_files.py
               ┌─────────────┼─────────────┐
               ▼             ▼             ▼
          ┌────────┐   ┌──────────┐   ┌─────────┐
-         │OpenRouter│  │  Policy  │   │  File   │
-         │ (LLM)  │   │ Modules  │   │ Parsers │
+         │Approved│  │  Policy  │   │  File   │
+         │  LLM   │   │ Modules  │   │ Parsers │
          └────────┘   └──────────┘   └─────────┘
 ```
 
@@ -205,7 +208,7 @@ python scripts/create_test_files.py
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `OPENROUTER_API_KEY` | OpenRouter API key for LLM | Yes |
+| `LLM_API_KEY` | Approved LLM provider API key | Yes |
 | `JWT_SECRET` | Secret for JWT signing (after remediation) | No |
 | `BACKEND_URL` | Backend URL for frontend | No (default: localhost:5500) |
 
