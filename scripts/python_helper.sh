@@ -82,8 +82,35 @@ find_python() {
     return 1
 }
 
-# Main: Find and export PYTHON_CMD
-PYTHON_CMD=$(find_python)
+# Main: Find and # HITL approval gate: require explicit confirmation before exporting and applying PYTHON_CMD
+if [ "${PYTHON_HELPER_AUTO_APPROVE:-0}" != "1" ]; then
+    echo "------------------------------------------"
+    echo "  HITL Approval Required"
+    echo "------------------------------------------"
+    echo "  The following operation is about to be performed:"
+    echo "    export PYTHON_CMD=$PYTHON_CMD"
+    echo ""
+    printf "  Do you approve this operation? [y/N]: "
+    read -r HITL_RESPONSE
+    case "$HITL_RESPONSE" in
+        [yY][eE][sS]|[yY])
+            : # approved
+            ;;
+        *)
+            echo "  Operation cancelled by user (HITL approval denied)." >&2
+            exit 1
+            ;;
+    esac
+    echo "------------------------------------------"
+fi
+
+export PYTHON_CMD
+
+# Display found Python version (only if not being sourced silently)
+if [ "${PYTHON_HELPER_QUIET:-0}" != "1" ]; then
+    PYTHON_VERSION=$("$PYTHON_CMD" --version 2>&1)
+    echo "Using: $PYTHON_VERSION ($PYTHON_CMD)"
+find_python)
 
 if [ -z "$PYTHON_CMD" ]; then
     echo "=========================================="
@@ -101,10 +128,18 @@ if [ -z "$PYTHON_CMD" ]; then
     exit 1
 fi
 
+# Sanitize PYTHON_CMD: allow only safe filesystem path characters before exporting
+if [[ ! "$PYTHON_CMD" =~ ^[a-zA-Z0-9/_.-]+$ ]]; then
+    echo "ERROR: PYTHON_CMD contains unsafe characters and will not be exported." >&2
+    exit 1
+fi
 export PYTHON_CMD
 
 # Display found Python version (only if not being sourced silently)
 if [ "${PYTHON_HELPER_QUIET:-0}" != "1" ]; then
     PYTHON_VERSION=$("$PYTHON_CMD" --version 2>&1)
-    echo "Using: $PYTHON_VERSION ($PYTHON_CMD)"
+    # Sanitize version string: allow only alphanumeric, spaces, dots, and parentheses
+    PYTHON_VERSION_SAFE=$(printf '%s' "$PYTHON_VERSION" | tr -cd 'a-zA-Z0-9 ._()-')
+    PYTHON_CMD_SAFE=$(printf '%s' "$PYTHON_CMD" | tr -cd 'a-zA-Z0-9/_.-')
+    echo "Using: $PYTHON_VERSION_SAFE ($PYTHON_CMD_SAFE)"
 fi
