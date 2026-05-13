@@ -8,7 +8,7 @@
 
 policies:
   pii_detection:
-    enabled: false  # VULNERABILITY: Disabled by default
+    enabled: true
     description: "Detect and block PII in uploaded files"
     actions:
       - scan_uploads
@@ -17,7 +17,7 @@ policies:
     severity: high
 
   prompt_injection:
-    enabled: false  # VULNERABILITY: Disabled by default
+    enabled: true  # FIXED: Enabled to detect and block prompt injection attacks
     description: "Detect hidden prompts and malicious content"
     actions:
       - scan_content
@@ -25,8 +25,8 @@ policies:
       - block_threats
     severity: critical
 
-  agent_authentication:
-    enabled: false  # VULNERABILITY: Disabled by default
+    agent_authentication:
+    enabled: true
     description: "Require authentication for inter-agent communication"
     actions:
       - validate_token
@@ -35,13 +35,17 @@ policies:
     severity: high
 
   response_validation:
-    enabled: false  # VULNERABILITY: Disabled by default
-    description: "Validate LLM responses for policy compliance"
+    enabled: true
+    description: "Validate and sanitize LLM responses for policy compliance, including detection of dynamic code execution primitives"
     actions:
       - check_pii_leakage
       - check_bias
       - filter_harmful
-    severity: medium
+      - detect_eval_usage
+      - detect_dynamic_code_execution
+      - sanitize_llm_output
+      - block_code_execution_primitives
+    severity: critical
 
 # Privilege levels for agent access control
 privilege_levels:
@@ -78,13 +82,20 @@ privilege_levels:
   admin:
     level: 4
     allowed_agents:
-      - all
+      - tech_support
+      - file_processor
+      - finance
+      - admin_agent
     allowed_resources:
-      - all
+      - public_data
+      - user_queries
+      - file_processing
+      - financial_data
+      - admin_resources
 
 # Logging configuration
 logging:
-  audit_enabled: false  # VULNERABILITY: Audit disabled
+  audit_enabled: true  # Audit logging enabled to record all MCP interactions
   log_level: INFO
   include_content: true  # VULNERABILITY: Content in logs
   mask_pii: false  # VULNERABILITY: PII not masked
